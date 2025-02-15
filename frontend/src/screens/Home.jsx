@@ -1,9 +1,76 @@
-import React,{useContext} from "react";
-import {UserContext} from "../context/user.context"
-const Home = ()=>{
-    const {user} = useContext(UserContext);
+import React, { useContext, useState } from "react";
+import { UserContext } from "../context/user.context";
+import axios from "../config/axios";
+
+const Home = () => {
+    const { user } = useContext(UserContext);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [projectName, setProjectName] = useState("");
+
+    function createProject(e) {
+        e.preventDefault();
+        console.log("Project Created:", projectName);
+        // Close modal after submission
+
+        axios.post("/projects/create",{
+            name:projectName,
+        }).then((res)=>{
+            console.log(res);
+            setIsModalOpen(false);
+        }).catch((err)=>{
+            console.log(err);
+        })
+    }
+
     return (
-        <div>{JSON.stringify(user)}</div>
-    )
-}
+        <main className="p-4">
+            <div className="projects">
+                {/* Button to open modal */}
+                <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="p-4 border border-slate-300 rounded-md text-white bg-gray-800 hover:bg-gray-600 transition flex items-center"
+                >
+                    <i className="ri-add-circle-line text-lg mr-2"></i> Create Project
+                </button>
+            </div>
+
+            {/* Modal */}
+            {isModalOpen && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-96">
+                        <h2 className="text-xl font-bold text-white mb-4">Enter Project Name</h2>
+
+                        <form onSubmit={createProject} className="space-y-4">
+                            <input
+                                type="text"
+                                value={projectName}
+                                onChange={(e) => setProjectName(e.target.value)}
+                                className="w-full px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                placeholder="Project Name"
+                                required
+                            />
+
+                            <div className="flex justify-end space-x-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="px-4 py-2 text-gray-300 bg-gray-600 rounded-md hover:bg-gray-500 transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition"
+                                >
+                                    Submit
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </main>
+    );
+};
+
 export default Home;
