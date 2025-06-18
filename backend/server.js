@@ -1,44 +1,65 @@
 import 'dotenv/config.js';
-
 import http from 'http';
 import app from './app.js';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
-
+import mongoose from 'mongoose'; // ✅ Add this import
+import ProjectModel from './models/project.model.js';
 
 const port = process.env.PORT || 3000;
 
 const server = http.createServer(app);
-const io = new Server(server,{cors :{
-    origin :'*'
-}})
 
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+  },
+});
 
-io.use((socket,next)=>{
-    try {
-        const token  = socket.handshake.auth?.token || socket.handshake.headers.authorization?.split(' ')[1];
-        if(!token){
-            return next(new Error('Authentication error'));
-        }
-        const decoded = jwt.verify(token,process.env.JWT_SECRET);
-        if(!decoded){
-            return next(new Error('Authentication error'));
-        }
-        socket.user = decoded;
-        next();
-    } catch (error) {
-        next(error)
+// ✅ Auth middleware
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token || socket.handshake.headers.authorization?.split(' ')[1];
+    const projectId = socket.handshake.query.projectId;
+
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      return next(new Error("Invalid ProjectId"));
     }
-})
 
-io.on('connection',socket => {
-    console.log("A user is connected");
+    const project = await ProjectModel.findById(projectId);
+    if (!project) return next(new Error("Project not found"));
 
-    socket.on('event',data => {});
-    socket.on('disconnect',()=>{})
-    
-})
+    if (!token) return next(new Error('Authentication error'));
 
-server.listen(port,()=>{
-    console.log(`server is running on port ${port}`);
-})
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded) return next(new Error('Invalid token'));
+
+    socket.user = decoded;
+    socket.project = project;
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ✅ Socket event listeners
+io.on('connection', socket => {
+    socket.roomId = socket.project._id.toString()
+  console.log(`✅ User connected: ${socket.user.email}`);
+
+  socket.join(socket.roomId);
+
+  socket.on("project-message", data => {
+    console.log(`📤 Message from ${socket.user.email}:`, data);
+
+    socket.broadcast.to(socket.roomId).emit('project-message', data);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`❌ User disconnected: ${socket.user.email}`);
+  });
+});
+
+server.listen(port, () => {
+  console.log(`🚀 Server is running on port ${port}`);
+});
