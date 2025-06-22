@@ -167,13 +167,13 @@ function appendMessage({ sender, message }) {
   };
 
   function scrollToBottom(){
-    messageBox.current.scrollTop = messageBox.current.scrollHeight;
+    messageBoxRef.current.scrollTop = messageBoxRef.current.scrollHeight;
   }
 
   return (
     <main className="h-screen w-screen flex">
-      <section className="left relative flex flex-col h-screen min-w-96 relative bg-slate-300">
-        <header className="flex justify-between items-center p-2 px-4 w-full bg-slate-100 absolute top-0">
+      <section className="left relative flex flex-col h-screen min-w-96 relative bg-slate-300 ">
+        <header className="flex justify-between items-center p-2 px-4 w-full bg-slate-100 absolute top-0 z-10">
           <button onClick={() => setIsModalOpen(true)} className="flex gap-2">
             <i className="ri-add-fill mr-1"></i>
             <p>Add collaborators</p>
