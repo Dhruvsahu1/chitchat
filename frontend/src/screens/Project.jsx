@@ -17,77 +17,116 @@ const Project = ({ navigate }) => {
   const [project, setProject] = useState(location.state.project);
   const [message, setMessage] = useState("");
   const { user } = useContext(UserContext);
-  const messageBox = React.createRef();
+  const messageBoxRef = React.useRef(null);
 
-  useEffect(() => {
-    initializeSocket(project._id);
+useEffect(() => {
+  initializeSocket(project._id);
 
-    recieveMessage("project-message", (data) => {
-      console.log(data);
-      appendInputMessage(data)
-    });
-    axios
-      .get(`/projects/get-project/${location.state.project._id}`)
-      .then((res) => {
-        setProject(res.data.project);
-      });
-
-    axios
-      .get("/users/all")
-      .then((res) => setUsers(res.data.users))
-      .catch((err) => console.log(err));
-  }, []);
-
-  const send = () => {
-
-    sendMessage("project-message", {
-      message,
-      sender: user,
-    });
-    appendOutputMessage(message);
-    setMessage("");
+  const handleIncoming = (data) => {
+    if (data.sender._id !== user._id) {
+      appendMessage(data); // only append if not my own
+    }
   };
 
-function appendInputMessage({ sender, message }) {
-  const messageBox = document.querySelector(".message-box");
+  recieveMessage("project-message", handleIncoming);
+
+  axios
+    .get(`/projects/get-project/${location.state.project._id}`)
+    .then((res) => {
+      setProject(res.data.project);
+    });
+
+  axios
+    .get("/users/all")
+    .then((res) => setUsers(res.data.users))
+    .catch((err) => console.log(err));
+}, []);
+
+
+  const send = () => {
+    if(!message){
+        return;
+    }
+  const payload = {
+    message,
+    sender: user,
+  };
+
+  appendMessage(payload); // immediately append locally
+  sendMessage("project-message", payload); // send via socket
+  setMessage(""); // clear input
+};
+
+function appendMessage({ sender, message }) {
+  const messageBox = messageBoxRef.current;
+  if (!messageBox) return;
+
+  const isOwn = sender._id === user._id;
+
   const msg = document.createElement("div");
   msg.classList.add(
-    "incomingMessage",
+    isOwn ? "ml-auto" : "incomingMessage",
     "max-w-56",
     "flex",
     "flex-col",
     "p-2",
-    "bg-slate-50",
     "w-fit",
-    "rounded-md"
+    "rounded-md",
+    isOwn ? "bg-slate-100" : "bg-slate-50"
   );
+
   msg.innerHTML = `
     <small class='opacity-65 text-xs'>${sender.email}</small>
     <p class='text-sm'>${message}</p>
   `;
+
   messageBox.appendChild(msg);
+  messageBox.scrollTop = messageBox.scrollHeight;
 }
 
-function appendOutputMessage(messageText) {
-  const messageBox = document.querySelector(".message-box");
-  const msg = document.createElement("div");
-  msg.classList.add(
-    "ml-auto", // ✅ aligns right
-    "max-w-56",
-    "flex",
-    "flex-col",
-    "p-2",
-    "bg-slate-100",
-    "w-fit",
-    "rounded-md"
-  );
-  msg.innerHTML = `
-    <small class='opacity-65 text-xs'>${user.email}</small>
-    <p class='text-sm'>${messageText}</p>
-  `;
-  messageBox.appendChild(msg);
-}
-//  to add collaborators
+
+  function appendInputMessage(messageObject) {
+    const messageBox = document.querySelector(".message-box");
+    const message = document.createElement("div");
+    message.classList.add(
+      "message",
+      "max-w-56",
+      "flex",
+      "flex-col",
+      "p-2",
+      "bg-slate-50",
+      "w-fit",
+      "rounded-md"
+    );
+    message.innerHTML = `
+        <small class='opacity-65 tex-xs'>${messageObject.sender.email}</small>
+        <p class='text-sm'>${messageObject.message}</p>
+        `
+    messageBox.appendChild(message);
+    scrollToBottom();
+  }
+
+  function appendOutputMessage(messageObject){
+     const messageBox = document.querySelector(".message-box");
+    const newMessage = document.createElement("div");
+    newMessage.classList.add(
+      "ml-auto",
+      "max-w-56",
+      "flex",
+      "flex-col",
+      "p-2",
+      "bg-slate-50",
+      "w-fit",
+      "rounded-md"
+    );
+    newMessage.innerHTML = `
+        <small class='opacity-65 tex-xs'>${user.email}</small>
+        <p class='text-sm'>${messageObject.newMessage}</p>
+        `
+    messageBox.appendChild(newMessage);
+    scrollToBottom();
+  }
+  // Function to add collaborators
   function addCollaborators() {
     // Ensure projectId exists
     const projectId = location?.state?.project?._id;
@@ -127,10 +166,14 @@ function appendOutputMessage(messageText) {
     );
   };
 
+  function scrollToBottom(){
+    messageBox.current.scrollTop = messageBox.current.scrollHeight;
+  }
+
   return (
     <main className="h-screen w-screen flex">
-      <section className="left flex flex-col h-full min-w-96 relative bg-slate-300">
-        <header className="flex justify-between items-center p-2 px-4 w-full bg-slate-100">
+      <section className="left relative flex flex-col h-screen min-w-96 relative bg-slate-300">
+        <header className="flex justify-between items-center p-2 px-4 w-full bg-slate-100 absolute top-0">
           <button onClick={() => setIsModalOpen(true)} className="flex gap-2">
             <i className="ri-add-fill mr-1"></i>
             <p>Add collaborators</p>
@@ -142,21 +185,12 @@ function appendOutputMessage(messageText) {
             <i className="ri-group-fill"></i>
           </button>
         </header>
-        <div
-          ref={messageBox}
-          className="conversation-area flex-grow flex flex-col"
-        >
-          <div className="message-box p-1 flex flex-grow flex-col gap-1">
-            <div className="incomingMessage max-w-56 flex flex-col p-2 bg-slate-50 w-fit rounded-md">
-              <small className="opacity-65 tex-xs">example@gmail.com</small>
-              <p className="text-sm">Lorem ipsum dolor sit amet.</p>
-            </div>
-            <div className="ml-auto incomingMessage max-w-56 flex flex-col p-2 bg-slate-50 w-fit rounded-md">
-              <small className="opacity-65 tex-xs">example@gmail.com</small>
-              <p className="text-sm">Lorem ipsum dolor sit amet.</p>
-            </div>
+        <div className="conversation-area pt-14 pb-10 flex-grow flex flex-col h-full relative">
+          <div
+           ref={messageBoxRef}
+            className="message-box p-1 flex flex-grow flex-col gap-1 overflow-y-auto">
           </div>
-          <div className="inputfield w-full flex">
+          <div className="inputfield w-full flex absolute bottom-0">
             <input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
