@@ -50,13 +50,13 @@ io.on('connection', socket => {
   socket.join(socket.roomId);
 
   socket.on("project-message", data => {
-    console.log(`📤 Message from ${socket.user.email}:`, data);
 
     socket.broadcast.to(socket.roomId).emit('project-message', data);
   });
 
   socket.on('disconnect', () => {
     console.log(`❌ User disconnected: ${socket.user.email}`);
+    socket.leave(socket.roomId);
   });
 });
 
