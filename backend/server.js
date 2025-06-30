@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose'; // ✅ Add this import
 import ProjectModel from './models/project.model.js';
+import { generateResult } from './services/jarwis.service.js';
 
 const port = process.env.PORT || 3000;
 
@@ -42,17 +43,34 @@ io.use(async (socket, next) => {
   }
 });
 
-// ✅ Socket event listeners
+
 io.on('connection', socket => {
     socket.roomId = socket.project._id.toString()
   console.log(`✅ User connected: ${socket.user.email}`);
 
   socket.join(socket.roomId);
 
-  socket.on("project-message", data => {
+  socket.on("project-message", async data => {
+  const message = data.message;
+  const aiIsPresent = message.includes('@jarwis');
 
-    socket.broadcast.to(socket.roomId).emit('project-message', data);
-  });
+  socket.broadcast.to(socket.roomId).emit('project-message', data);
+
+  
+  if (aiIsPresent) {
+    const prompt = message.replace('@jarwis', '');
+    const result = await generateResult(prompt);
+
+    io.to(socket.roomId).emit('project-message', {
+      message: result,
+      sender: {
+        _id: 'Jarwis',
+        email: 'Jarwis',
+      }
+    });
+  }
+});
+
 
   socket.on('disconnect', () => {
     console.log(`❌ User disconnected: ${socket.user.email}`);

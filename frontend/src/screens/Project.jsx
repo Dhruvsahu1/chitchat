@@ -7,6 +7,7 @@ import {
   recieveMessage,
 } from "../config/socket";
 import { UserContext } from "../context/user.context";
+import Markdown from "markdown-to-jsx";
 
 const Project = ({ navigate }) => {
   const location = useLocation();
@@ -18,117 +19,51 @@ const Project = ({ navigate }) => {
   const [message, setMessage] = useState("");
   const { user } = useContext(UserContext);
   const messageBoxRef = React.useRef(null);
+  const [messages, setMessages] = useState([]);
 
-useEffect(() => {
-  initializeSocket(project._id);
+  useEffect(() => {
+    initializeSocket(project._id);
 
-  const handleIncoming = (data) => {
-    if (data.sender._id !== user._id) {
-      appendMessage(data); // only append if not my own
+    const handleIncoming = (data) => {
+      if (data.sender._id !== user._id) {
+        setMessages((prev) => [...prev, data]);
+      }
+    };
+
+    recieveMessage("project-message", handleIncoming);
+
+    axios
+      .get(`/projects/get-project/${location.state.project._id}`)
+      .then((res) => {
+        setProject(res.data.project);
+      });
+
+    axios
+      .get("/users/all")
+      .then((res) => setUsers(res.data.users))
+      .catch((err) => console.log(err));
+  }, []);
+
+  useEffect(() => {
+    if (messageBoxRef.current) {
+      messageBoxRef.current.scrollTop = messageBoxRef.current.scrollHeight;
     }
-  };
-
-  recieveMessage("project-message", handleIncoming);
-
-  axios
-    .get(`/projects/get-project/${location.state.project._id}`)
-    .then((res) => {
-      setProject(res.data.project);
-    });
-
-  axios
-    .get("/users/all")
-    .then((res) => setUsers(res.data.users))
-    .catch((err) => console.log(err));
-}, []);
-
+  }, [messages]);
 
   const send = () => {
-    if(!message){
-        return;
-    }
-  const payload = {
-    message,
-    sender: user,
+    if (!message) return;
+
+    const payload = {
+      message,
+      sender: user,
+    };
+
+    setMessages((prev) => [...prev, payload]);
+    sendMessage("project-message", payload);
+    setMessage("");
   };
 
-  appendMessage(payload); // immediately append locally
-  sendMessage("project-message", payload); // send via socket
-  setMessage(""); // clear input
-};
-
-function appendMessage({ sender, message }) {
-  const messageBox = messageBoxRef.current;
-  if (!messageBox) return;
-
-  const isOwn = sender._id === user._id;
-
-  const msg = document.createElement("div");
-  msg.classList.add(
-    isOwn ? "ml-auto" : "incomingMessage",
-    "max-w-56",
-    "flex",
-    "flex-col",
-    "p-2",
-    "w-fit",
-    "rounded-md",
-    isOwn ? "bg-slate-100" : "bg-slate-50"
-  );
-
-  msg.innerHTML = `
-    <small class='opacity-65 text-xs'>${sender.email}</small>
-    <p class='text-sm'>${message}</p>
-  `;
-
-  messageBox.appendChild(msg);
-  messageBox.scrollTop = messageBox.scrollHeight;
-}
-
-
-  function appendInputMessage(messageObject) {
-    const messageBox = document.querySelector(".message-box");
-    const message = document.createElement("div");
-    message.classList.add(
-      "message",
-      "max-w-56",
-      "flex",
-      "flex-col",
-      "p-2",
-      "bg-slate-50",
-      "w-fit",
-      "rounded-md"
-    );
-    message.innerHTML = `
-        <small class='opacity-65 tex-xs'>${messageObject.sender.email}</small>
-        <p class='text-sm'>${messageObject.message}</p>
-        `
-    messageBox.appendChild(message);
-    scrollToBottom();
-  }
-
-  function appendOutputMessage(messageObject){
-     const messageBox = document.querySelector(".message-box");
-    const newMessage = document.createElement("div");
-    newMessage.classList.add(
-      "ml-auto",
-      "max-w-56",
-      "flex",
-      "flex-col",
-      "p-2",
-      "bg-slate-50",
-      "w-fit",
-      "rounded-md"
-    );
-    newMessage.innerHTML = `
-        <small class='opacity-65 tex-xs'>${user.email}</small>
-        <p class='text-sm'>${messageObject.newMessage}</p>
-        `
-    messageBox.appendChild(newMessage);
-    scrollToBottom();
-  }
-  // Function to add collaborators
   function addCollaborators() {
-    // Ensure projectId exists
     const projectId = location?.state?.project?._id;
 
     if (!projectId) {
@@ -143,13 +78,13 @@ function appendMessage({ sender, message }) {
 
     axios
       .put("/projects/add-user", {
-        projectId, // Corrected projectId reference
+        projectId,
         users: selectedUsers,
       })
       .then((res) => {
         console.log("Users added:", res.data);
-        setIsModalOpen(false); // Close the modal on success
-        setSelectedUsers([]); // Clear selected users
+        setIsModalOpen(false);
+        setSelectedUsers([]);
       })
       .catch((err) => {
         console.error(
@@ -159,20 +94,15 @@ function appendMessage({ sender, message }) {
       });
   }
 
-  // Toggle user selection: single click selects, another click unselects
   const handleUserClick = (id) => {
     setSelectedUsers((prev) =>
       prev.includes(id) ? prev.filter((userId) => userId !== id) : [...prev, id]
     );
   };
 
-  function scrollToBottom(){
-    messageBoxRef.current.scrollTop = messageBoxRef.current.scrollHeight;
-  }
-
   return (
     <main className="h-screen w-screen flex">
-      <section className="left relative flex flex-col h-screen min-w-96 relative bg-slate-300 ">
+      <section className="left relative flex flex-col h-screen min-w-96 bg-slate-300">
         <header className="flex justify-between items-center p-2 px-4 w-full bg-slate-100 absolute top-0 z-10">
           <button onClick={() => setIsModalOpen(true)} className="flex gap-2">
             <i className="ri-add-fill mr-1"></i>
@@ -185,11 +115,53 @@ function appendMessage({ sender, message }) {
             <i className="ri-group-fill"></i>
           </button>
         </header>
+
         <div className="conversation-area pt-14 pb-10 flex-grow flex flex-col h-full relative">
           <div
-           ref={messageBoxRef}
-            className="message-box p-1 flex flex-grow flex-col gap-1 overflow-y-auto">
+            ref={messageBoxRef}
+            className="message-box p-1 flex flex-grow flex-col gap-1 overflow-y-auto"
+          >
+            {messages.map((msg, index) => {
+  const isOwn = msg.sender._id === user._id;
+  return (
+    <div
+      key={index}
+      className={`max-w-sm flex flex-col p-2 w-fit rounded-md ${
+        isOwn ? "ml-auto bg-slate-100" : "bg-slate-50"
+      }`}
+    >
+      <small className="opacity-65 text-xs">{msg.sender.email}</small>
+      {msg.sender._id === "Jarwis" ? (
+        <div className="text-sm break-words whitespace-pre-wrap overflow-x-auto">
+          <Markdown
+            options={{
+              overrides: {
+                pre: {
+                  props: {
+                    className:
+                      "bg-gray-200 rounded p-2 text-sm overflow-x-auto",
+                  },
+                },
+                code: {
+                  props: {
+                    className: "font-mono",
+                  },
+                },
+              },
+            }}
+          >
+            {msg.message}
+          </Markdown>
+        </div>
+      ) : (
+        <p className="text-sm break-words whitespace-pre-wrap">{msg.message}</p>
+      )}
+    </div>
+  );
+})}
+
           </div>
+
           <div className="inputfield w-full flex absolute bottom-0">
             <input
               value={message}
@@ -216,18 +188,19 @@ function appendMessage({ sender, message }) {
             </button>
           </header>
 
-          <div className="users flex flex-col gap-2 ">
+          <div className="users flex flex-col gap-2">
             {project.users &&
-              project.users.map((user) => {
-                return (
-                  <div className="user cursor-pointer p-2 hover:bg-slate-200 flex gap-2 items-center">
-                    <div className="aspect-square rounded-full p-2 w-fit h-fit flex items-center text-white justify-center p-5 bg-slate-600">
-                      <i className="ri-user-fill absolute"></i>
-                    </div>
-                    <h1 className="font-semibold text-lg">{user.email}</h1>
+              project.users.map((user) => (
+                <div
+                  key={user._id}
+                  className="user cursor-pointer p-2 hover:bg-slate-200 flex gap-2 items-center"
+                >
+                  <div className="aspect-square rounded-full p-2 w-fit h-fit flex items-center text-white justify-center bg-slate-600">
+                    <i className="ri-user-fill absolute"></i>
                   </div>
-                );
-              })}
+                  <h1 className="font-semibold text-lg">{user.email}</h1>
+                </div>
+              ))}
           </div>
         </div>
       </section>
