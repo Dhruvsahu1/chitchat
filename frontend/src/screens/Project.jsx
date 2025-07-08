@@ -20,6 +20,17 @@ const Project = ({ navigate }) => {
   const { user } = useContext(UserContext);
   const messageBoxRef = React.useRef(null);
   const [messages, setMessages] = useState([]);
+  const [fileTree,setFileTree] = useState({
+    "app.js":{
+      content:`const express = require('express');
+      `
+    },
+    "package.json": {
+      content: `{"name": "express-server",
+      }`
+    }
+  })
+  const [currentFile,setCurrentFile] = useState(null);
 
   useEffect(() => {
     initializeSocket(project._id);
@@ -204,6 +215,39 @@ const Project = ({ navigate }) => {
           </div>
         </div>
       </section>
+      <section className="right bg-red-100 flex flex-row h-full w-full overflow-hidden">
+  {/* Explorer */}
+  <div className="explorer h-full w-64 bg-slate-200 border-r">
+    <div className="file_tree">
+      {Object.keys(fileTree).map((file) => (
+        <button
+          key={file}
+          onClick={() => setCurrentFile(file)}
+          className="tree-element w-full text-left"
+        >
+          <p className="cursor-pointer p-2 bg-slate-400 px-4 font-semibold text-lg text-blue-600 hover:underline">
+            {file}
+          </p>
+        </button>
+      ))}
+    </div>
+  </div>
+
+  {/* Code Editor */}
+  {currentFile && (
+    <div className="code-editor flex flex-col flex-grow h-full bg-white overflow-y-auto border-l">
+      <div className="code-editor-header flex justify-between items-center p-2 bg-slate-200 border-b">
+        <h1 className="font-semibold text-lg">{currentFile}</h1>
+        <button className="p-2" onClick={() => setCurrentFile(null)}>
+          <i className="ri-close-fill"></i>
+        </button>
+      </div>
+      <pre className="p-4 whitespace-pre-wrap font-mono text-sm overflow-x-auto">
+        {fileTree[currentFile].content}
+      </pre>
+    </div>
+  )}
+</section>
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
