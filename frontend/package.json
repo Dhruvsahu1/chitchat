@@ -10,12 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "@tailwindcss/vite": "^4.0.6",
     "axios": "^1.7.9",
     "markdown-to-jsx": "^7.7.10",
+    "prismjs": "^1.30.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.5",
+    "react-syntax-highlighter": "^15.6.6",
     "remixicon": "^4.6.0",
     "socket.io-client": "^4.8.1"
   },

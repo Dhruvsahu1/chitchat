@@ -52,14 +52,7 @@ export const generateResult = async (prompt) => {
       "dependencies": {
         "express": "^4.17.1"
       },",
-      "buildCommand":{
-      mainItem:"npm",
-      commands:["install"]
-      },
-      "startCommand":{
-      mainItem:"node",
-      commands:["app.js"]
-      }
+      
 
     `,
     contents: prompt,
